@@ -108,11 +108,12 @@
 
         :root {
             --c-bg: #ffffff;
-            --c-surface: #f7f6f4;
-            --c-ink: #111111;
-            --c-muted: #999;
-            --c-line: #e8e8e8;
-            --c-accent: #111111;
+            --c-surface: #f5f3ed;
+            --c-ink: #2d3517;
+            --c-muted: #8a9075;
+            --c-line: #d4ccba;
+            --c-accent: #4a5c2a;
+            --c-brand: #c9a04a;
             --c-danger: #cc3333;
             --font-display: 'Bebas Neue', sans-serif;
             --font-body: 'DM Sans', sans-serif;
