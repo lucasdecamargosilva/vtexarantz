@@ -617,7 +617,7 @@
                     <div id="q-loading-box">
                         <div class="q-loading-texts">
                             <div class="q-loading-t1">Gerando sua prova...</div>
-                            <a href="https://provoulevou.com.br" target="_blank" class="q-loading-t2">
+                            <a href="https://provoulevou.com.br/?utm_source=widget&utm_medium=parceiro&utm_campaign=arantz" target="_blank" rel="dofollow noopener" class="q-loading-t2">
                                 <span>Powered by</span>
                                 <img src="https://i.ibb.co/MD3B4FQf/Logo-provou-preto-1.png" alt="Provou Levou">
                             </a>
@@ -651,7 +651,7 @@
                     </div>
 
                 </div>
-                <a href="https://provoulevou.com.br" target="_blank" class="q-powered-footer">
+                <a href="https://provoulevou.com.br/?utm_source=widget&utm_medium=parceiro&utm_campaign=arantz" target="_blank" rel="dofollow noopener" class="q-powered-footer">
                     <span>Powered by</span>
                     <img src="https://i.ibb.co/MD3B4FQf/Logo-provou-preto-1.png" class="q-quantic-logo" alt="Provou Levou">
                 </a>
