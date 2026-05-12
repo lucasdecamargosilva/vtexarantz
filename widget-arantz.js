@@ -229,24 +229,32 @@
         }
         .q-phone-wrap { margin-bottom: 28px; }
 
-        /* ── Photo selector (product images) ── */
+        /* ── Photo selector (product images carousel) ── */
         .q-photo-selector-wrap { margin-bottom: 28px; display: none; }
         .q-photo-selector-wrap.is-visible { display: block; }
+        .q-photo-carousel { position: relative; }
         .q-photo-thumbs {
-            display: grid; grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
+            display: flex; gap: 8px;
+            overflow-x: auto; overflow-y: hidden;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none; -ms-overflow-style: none;
+            padding: 2px;
+            scroll-behavior: smooth;
         }
+        .q-photo-thumbs::-webkit-scrollbar { display: none; }
         .q-photo-thumb {
-            position: relative; aspect-ratio: 1;
+            position: relative;
+            flex: 0 0 calc((100% - 24px) / 4);
+            aspect-ratio: 1;
             cursor: pointer; padding: 0; margin: 0;
             border: 1.5px solid var(--c-line);
             background: var(--c-surface);
             overflow: hidden; border-radius: 4px;
-            transition: border-color 0.15s, transform 0.15s;
+            scroll-snap-align: start;
+            transition: border-color 0.15s;
         }
-        .q-photo-thumb img {
-            width: 100%; height: 100%; object-fit: cover; display: block;
-        }
+        .q-photo-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
         .q-photo-thumb:hover { border-color: var(--c-ink); }
         .q-photo-thumb.is-selected { border-color: var(--c-ink); border-width: 2px; }
         .q-photo-thumb.is-selected::after {
@@ -261,6 +269,24 @@
             font-size: 10px;
         }
         .q-photo-thumb.is-selected .q-photo-thumb-check { display: flex; }
+        .q-photo-arrow {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 28px; height: 28px; border-radius: 50%;
+            background: rgba(255,255,255,0.96);
+            border: 1px solid var(--c-line);
+            color: var(--c-ink);
+            cursor: pointer; padding: 0;
+            z-index: 2;
+            display: none; align-items: center; justify-content: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+            transition: opacity .15s, background .15s, color .15s;
+        }
+        .q-photo-arrow.is-active { display: flex; }
+        .q-photo-arrow:hover { background: var(--c-ink); color: #fff; }
+        .q-photo-arrow:disabled { opacity: 0; pointer-events: none; }
+        .q-photo-arrow svg { width: 14px; height: 14px; }
+        .q-photo-arrow-left { left: -6px; }
+        .q-photo-arrow-right { right: -6px; }
         .q-input {
             display: block; width: 100%; height: 52px;
             padding: 0 16px; margin: 0;
@@ -592,10 +618,18 @@
                             <div id="q-phone-error" class="q-status-msg">N&#250;mero inv&#225;lido</div>
                         </div>
 
-                        <!-- Product photo selector -->
+                        <!-- Product photo selector (carousel) -->
                         <div class="q-photo-selector-wrap" id="q-photo-selector-group">
                             <span class="q-field-label">Escolha a foto do &#243;culos</span>
-                            <div class="q-photo-thumbs" id="q-photo-thumbs"></div>
+                            <div class="q-photo-carousel">
+                                <button type="button" class="q-photo-arrow q-photo-arrow-left" id="q-photo-arrow-left" aria-label="Anterior">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                                </button>
+                                <div class="q-photo-thumbs" id="q-photo-thumbs"></div>
+                                <button type="button" class="q-photo-arrow q-photo-arrow-right" id="q-photo-arrow-right" aria-label="Pr&#243;xima">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                                </button>
+                            </div>
                         </div>
 
                         <!-- Photo section -->
@@ -954,13 +988,15 @@
                 const og = document.querySelector('meta[property="og:image"]')?.content;
                 if (og) uniqueImgs.push(upgradeImgUrl(og));
             }
-            return uniqueImgs.slice(0, 4);
+            return uniqueImgs.slice(0, 12);
         }
 
         function populateImageSelector() {
             const imgs = extractImages();
             const group = document.getElementById('q-photo-selector-group');
             const thumbs = document.getElementById('q-photo-thumbs');
+            const arrowL = document.getElementById('q-photo-arrow-left');
+            const arrowR = document.getElementById('q-photo-arrow-right');
 
             selectedProductImgUrl = imgs[0] || '';
 
@@ -994,6 +1030,27 @@
             });
 
             group.classList.add('is-visible');
+
+            // Carrossel: setas só aparecem quando há overflow
+            if (arrowL && arrowR) {
+                const update = () => {
+                    const overflow = thumbs.scrollWidth > thumbs.clientWidth + 1;
+                    arrowL.classList.toggle('is-active', overflow);
+                    arrowR.classList.toggle('is-active', overflow);
+                    arrowL.disabled = thumbs.scrollLeft <= 0;
+                    arrowR.disabled = thumbs.scrollLeft >= thumbs.scrollWidth - thumbs.clientWidth - 1;
+                };
+                thumbs.onscroll = update;
+                window.addEventListener('resize', update);
+                requestAnimationFrame(update);
+
+                const slide = (dir) => {
+                    const amount = thumbs.clientWidth * 0.7;
+                    thumbs.scrollBy({ left: dir * amount, behavior: 'smooth' });
+                };
+                arrowL.onclick = () => slide(-1);
+                arrowR.onclick = () => slide(1);
+            }
         }
 
         function openModal() {
