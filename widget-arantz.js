@@ -795,25 +795,40 @@
 
         // Posiciona acima do botão de compra
         function tryPlaceInlineBtn() {
-            const buyBtn = document.querySelector(
+            // 1) Acha o elemento interno do botão (texto/container) — usado só pra localizar o <button>
+            const inner = document.querySelector(
                 '.vtex-add-to-cart-button-0-x-buttonDataContainer, ' +
-                '[class*="vtex-add-to-cart-button"], ' +
-                '[class*="add-to-cart-button"], ' +
-                '.js-addtocart, .btn-add-to-cart, ' +
-                '[data-component="product.add-to-cart"]'
+                '.vtex-add-to-cart-button-0-x-buttonText, ' +
+                '[class*="add-to-cart-button"]'
             );
-            if (buyBtn) {
-                // sobe até achar um ancestral "natural" (linha/wrapper) pra não ficar dentro de um wrapper inline
-                const target = buyBtn.closest('[class*="buyButton"], [class*="BuyButton"], [class*="addToCart"], div, section') || buyBtn;
-                target.parentNode.insertBefore(inlineBtn, target);
-                return true;
+
+            // 2) Sobe ao <button> real
+            let btn = inner ? inner.closest('button') : null;
+
+            // 3) Fallback: legacy CMS / outros temas
+            if (!btn) {
+                btn = document.querySelector('.js-addtocart, .btn-add-to-cart, [data-component="product.add-to-cart"]');
             }
-            const variantsContainer = document.querySelector('.js-product-variants, [class*="skuSelector"]');
-            if (variantsContainer) {
-                variantsContainer.parentNode.insertBefore(inlineBtn, variantsContainer.nextSibling);
-                return true;
+            if (!btn) return false;
+
+            // 4) Sobe até achar uma flex column (irmão "natural" da linha do botão).
+            // VTEX IO empilha botões em flexCol; flexRow alinha horizontalmente.
+            let node = btn;
+            let safety = 0;
+            while (node.parentNode && node.parentNode !== document.body && safety < 20) {
+                const parent = node.parentNode;
+                const cls = (typeof parent.className === 'string' ? parent.className : '') || '';
+                if (/flexCol(?!Cls)|flex-col(?![a-z])/i.test(cls)) {
+                    parent.insertBefore(inlineBtn, node);
+                    return true;
+                }
+                node = parent;
+                safety++;
             }
-            return false;
+
+            // 5) Último recurso: insere antes do <button> diretamente
+            btn.parentNode.insertBefore(inlineBtn, btn);
+            return true;
         }
 
         if (!tryPlaceInlineBtn()) {
