@@ -696,24 +696,32 @@
         openBtn.innerHTML = stampImageHTML;
 
 
-        const imgContainers = ['.vtex-store-components-3-x-productImagesContainer', '.vtex-store-components-3-x-productImagesGallerySwiperContainer', '.vtex-store-components-3-x-productImagesGallerySlide', '[class*="productImagesContainer"]', '[class*="productImagesGallery"]', '[class*="productImages"]', '.vtex-store-components-3-x-product-images', '[class*="product-images"]', '[class*="ProductImages"]', '.swiper-container.gallery', '.product-images', '.product-gallery', '.media-gallery', '.product__media', '.product__media-wrapper'];
+        // Selectors ordenados por prioridade: imagem PRINCIPAL primeiro, thumbs por último
+        const imgContainers = [
+            // VTEX IO — main image carousel (alvo ideal)
+            '.vtex-store-components-3-x-carouselContainer',
+            '.vtex-store-components-3-x-productImagesGallerySwiperContainer',
+            '.vtex-store-components-3-x-productImagesGallerySlide',
+            // VTEX IO — outer wrapper (inclui thumbs strip, fallback aceitável)
+            '.vtex-store-components-3-x-productImagesContainer',
+            // VTEX IO — variantes (hash diferente em alguns temas)
+            '[class*="carouselContainer"]',
+            '[class*="productImagesGallery"]',
+            '[class*="productImagesContainer"]',
+            // Outros temas / legacy
+            '.swiper-container.gallery',
+            '.product-images', '.product-gallery', '.media-gallery',
+            '.product__media', '.product__media-wrapper'
+        ];
 
         function tryPlaceTriggerBtn() {
-            // 1ª prioridade: container que tenha <img> dentro (evita cair em slide de vídeo)
             for (const sel of imgContainers) {
                 const els = document.querySelectorAll(sel);
                 for (const el of els) {
-                    if (el.querySelector('img')) {
-                        if (window.getComputedStyle(el).position === 'static') el.style.position = 'relative';
-                        el.appendChild(openBtn);
-                        return true;
-                    }
-                }
-            }
-            // 2ª prioridade: qualquer container correspondente
-            for (const sel of imgContainers) {
-                const el = document.querySelector(sel);
-                if (el) {
+                    // Aceita container mesmo sem img ainda — VTEX IO renderiza img depois.
+                    // Filtra apenas containers visíveis com tamanho > 0.
+                    const r = el.getBoundingClientRect();
+                    if (r.width < 80 || r.height < 80) continue;
                     if (window.getComputedStyle(el).position === 'static') el.style.position = 'relative';
                     el.appendChild(openBtn);
                     return true;
@@ -723,20 +731,29 @@
         }
 
         if (!tryPlaceTriggerBtn()) {
-            // Container não pronto ainda (ex: após F5 no mobile).
-            // Observa DOM até 5s aguardando o container aparecer.
-            const observer = new MutationObserver(() => {
-                if (tryPlaceTriggerBtn()) observer.disconnect();
+            // VTEX IO React monta tarde. Combina MutationObserver + polling.
+            let placed = false;
+            const obs1 = new MutationObserver(() => {
+                if (!placed && tryPlaceTriggerBtn()) { placed = true; obs1.disconnect(); clearInterval(poll); }
             });
-            observer.observe(document.body, { childList: true, subtree: true });
+            obs1.observe(document.body, { childList: true, subtree: true });
 
+            const poll = setInterval(() => {
+                if (placed) { clearInterval(poll); return; }
+                if (tryPlaceTriggerBtn()) { placed = true; obs1.disconnect(); clearInterval(poll); }
+            }, 400);
+
+            // Sem timeout — o observer + polling rodam até achar.
+            // Se em 30s nada achou, esconde o botão (não usa fallback canto inferior direito,
+            // que conflita com botão de WhatsApp da Arantz).
             setTimeout(() => {
-                observer.disconnect();
-                if (!openBtn.isConnected) {
-                    openBtn.style.cssText = 'position:fixed;bottom:30px;right:20px;top:auto;z-index:100;';
-                    document.body.appendChild(openBtn);
+                if (!placed) {
+                    obs1.disconnect();
+                    clearInterval(poll);
+                    // Botão inline próximo ao "Comprar" continua funcionando — esse aqui só some.
+                    openBtn.style.display = 'none';
                 }
-            }, 5000);
+            }, 30000);
         }
 
 
