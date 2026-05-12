@@ -696,7 +696,7 @@
         openBtn.innerHTML = stampImageHTML;
 
 
-        const imgContainers = ['.vtex-store-components-3-x-product-images', '.vtex-store-components-3-x-productImages', '[class*="product-images"]', '[class*="ProductImages"]', '.swiper-container.gallery', '.product-images', '.product-gallery', '.media-gallery', '.product__media', '.product__media-wrapper'];
+        const imgContainers = ['.vtex-store-components-3-x-productImagesContainer', '.vtex-store-components-3-x-productImagesGallerySwiperContainer', '.vtex-store-components-3-x-productImagesGallerySlide', '[class*="productImagesContainer"]', '[class*="productImagesGallery"]', '[class*="productImages"]', '.vtex-store-components-3-x-product-images', '[class*="product-images"]', '[class*="ProductImages"]', '.swiper-container.gallery', '.product-images', '.product-gallery', '.media-gallery', '.product__media', '.product__media-wrapper'];
 
         function tryPlaceTriggerBtn() {
             // 1ª prioridade: container que tenha <img> dentro (evita cair em slide de vídeo)
@@ -777,14 +777,35 @@
         });
 
         // Posiciona acima do botão de compra
-        const buyBtn = document.querySelector('.js-addtocart, .btn-add-to-cart, [data-component="product.add-to-cart"]');
-        if (buyBtn) {
-            buyBtn.parentNode.insertBefore(inlineBtn, buyBtn);
-        } else {
-            const variantsContainer = document.querySelector('.js-product-variants');
+        function tryPlaceInlineBtn() {
+            const buyBtn = document.querySelector(
+                '.vtex-add-to-cart-button-0-x-buttonDataContainer, ' +
+                '[class*="vtex-add-to-cart-button"], ' +
+                '[class*="add-to-cart-button"], ' +
+                '.js-addtocart, .btn-add-to-cart, ' +
+                '[data-component="product.add-to-cart"]'
+            );
+            if (buyBtn) {
+                // sobe até achar um ancestral "natural" (linha/wrapper) pra não ficar dentro de um wrapper inline
+                const target = buyBtn.closest('[class*="buyButton"], [class*="BuyButton"], [class*="addToCart"], div, section') || buyBtn;
+                target.parentNode.insertBefore(inlineBtn, target);
+                return true;
+            }
+            const variantsContainer = document.querySelector('.js-product-variants, [class*="skuSelector"]');
             if (variantsContainer) {
                 variantsContainer.parentNode.insertBefore(inlineBtn, variantsContainer.nextSibling);
+                return true;
             }
+            return false;
+        }
+
+        if (!tryPlaceInlineBtn()) {
+            // VTEX IO renderiza tarde — observa DOM até 8s
+            const obs2 = new MutationObserver(() => {
+                if (tryPlaceInlineBtn()) obs2.disconnect();
+            });
+            obs2.observe(document.body, { childList: true, subtree: true });
+            setTimeout(() => obs2.disconnect(), 8000);
         }
         const genBtn      = document.getElementById('q-btn-generate');
         const nextBtn     = null; // single-step flow — no next button
