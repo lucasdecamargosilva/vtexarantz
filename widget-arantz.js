@@ -228,6 +228,39 @@
             color: var(--c-muted); margin-bottom: 8px;
         }
         .q-phone-wrap { margin-bottom: 28px; }
+
+        /* ── Photo selector (product images) ── */
+        .q-photo-selector-wrap { margin-bottom: 28px; display: none; }
+        .q-photo-selector-wrap.is-visible { display: block; }
+        .q-photo-thumbs {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .q-photo-thumb {
+            position: relative; aspect-ratio: 1;
+            cursor: pointer; padding: 0; margin: 0;
+            border: 1.5px solid var(--c-line);
+            background: var(--c-surface);
+            overflow: hidden; border-radius: 4px;
+            transition: border-color 0.15s, transform 0.15s;
+        }
+        .q-photo-thumb img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+        .q-photo-thumb:hover { border-color: var(--c-ink); }
+        .q-photo-thumb.is-selected { border-color: var(--c-ink); border-width: 2px; }
+        .q-photo-thumb.is-selected::after {
+            content: ''; position: absolute; inset: 0;
+            background: rgba(0,0,0,0.04); pointer-events: none;
+        }
+        .q-photo-thumb-check {
+            position: absolute; top: 4px; right: 4px;
+            width: 18px; height: 18px; border-radius: 50%;
+            background: var(--c-ink); color: #fff;
+            display: none; align-items: center; justify-content: center;
+            font-size: 10px;
+        }
+        .q-photo-thumb.is-selected .q-photo-thumb-check { display: flex; }
         .q-input {
             display: block; width: 100%; height: 52px;
             padding: 0 16px; margin: 0;
@@ -557,6 +590,12 @@
                             <span class="q-field-label">Seu WhatsApp</span>
                             <input type="tel" id="q-phone" class="q-input" placeholder="(11) 99999-9999" maxlength="15">
                             <div id="q-phone-error" class="q-status-msg">N&#250;mero inv&#225;lido</div>
+                        </div>
+
+                        <!-- Product photo selector -->
+                        <div class="q-photo-selector-wrap" id="q-photo-selector-group">
+                            <span class="q-field-label">Escolha a foto do &#243;culos</span>
+                            <div class="q-photo-thumbs" id="q-photo-thumbs"></div>
                         </div>
 
                         <!-- Photo section -->
@@ -921,8 +960,40 @@
         function populateImageSelector() {
             const imgs = extractImages();
             const group = document.getElementById('q-photo-selector-group');
-            if (group) group.style.display = 'none';
+            const thumbs = document.getElementById('q-photo-thumbs');
+
             selectedProductImgUrl = imgs[0] || '';
+
+            if (!group || !thumbs || imgs.length <= 1) {
+                if (group) group.classList.remove('is-visible');
+                return;
+            }
+
+            while (thumbs.firstChild) thumbs.removeChild(thumbs.firstChild);
+            imgs.forEach((url, idx) => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'q-photo-thumb' + (idx === 0 ? ' is-selected' : '');
+                btn.dataset.url = url;
+                btn.setAttribute('aria-label', 'Foto ' + (idx + 1));
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = 'Foto ' + (idx + 1);
+                img.loading = 'lazy';
+                const check = document.createElement('span');
+                check.className = 'q-photo-thumb-check';
+                check.textContent = '✓';
+                btn.appendChild(img);
+                btn.appendChild(check);
+                btn.addEventListener('click', () => {
+                    selectedProductImgUrl = url;
+                    thumbs.querySelectorAll('.q-photo-thumb').forEach(t => t.classList.remove('is-selected'));
+                    btn.classList.add('is-selected');
+                });
+                thumbs.appendChild(btn);
+            });
+
+            group.classList.add('is-visible');
         }
 
         function openModal() {
@@ -1221,37 +1292,12 @@
                     fd.append('quadril', '');
                 }
 
-                // Coleta até 4 fotos do produto: 1ª como binary (compat), 2ª-4ª como base64 text.
-                // 1ª = prodImg (escolhida pelo cliente ou default); demais = extractImages() exceto a 1ª.
-                let allProdImgs = [];
-                if (prodImg) allProdImgs.push(prodImg);
-                try {
-                    if (typeof extractImages === 'function') {
-                        const extra = extractImages();
-                        for (const u of extra) {
-                            const cleanU = String(u || '').split('?')[0];
-                            if (!allProdImgs.some(p => String(p).split('?')[0] === cleanU)) {
-                                allProdImgs.push(u);
-                            }
-                        }
-                    }
-                } catch (_) {}
-                allProdImgs = allProdImgs.slice(0, 4);
-                console.log('[PL Cacife] Enviando', allProdImgs.length, 'fotos do produto');
-                for (let _pi = 0; _pi < allProdImgs.length; _pi++) {
+                // Envia apenas a foto do produto escolhida pelo cliente.
+                if (prodImg) {
                     try {
-                        const _b = await fetch(allProdImgs[_pi]).then(r => r.blob());
-                        if (_pi === 0) {
-                            fd.append('product_image', _b, 'product.jpg');
-                        } else {
-                            const _b64 = await new Promise((resolve, reject) => {
-                                const _r = new FileReader();
-                                _r.onloadend = () => resolve(_r.result.split(',')[1]);
-                                _r.onerror = reject;
-                                _r.readAsDataURL(_b);
-                            });
-                            fd.append('product_image_' + (_pi+1) + '_b64', _b64);
-                        }
+                        const _b = await fetch(prodImg).then(r => r.blob());
+                        fd.append('product_image', _b, 'product.jpg');
+                        console.log('[PL Arantz] Enviando 1 foto do produto (selecionada pelo cliente)');
                     } catch (_) { }
                 }
 
