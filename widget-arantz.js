@@ -819,18 +819,23 @@
             return false;
         }
 
-        tryPlaceTriggerBtn();
+        const _firstPlaceTrigger = tryPlaceTriggerBtn();
+        console.log('[PL Arantz] trigger btn placed na 1ª tentativa?', _firstPlaceTrigger);
 
         // Watchdog permanente: VTEX IO re-renderiza em variantes/SPA-nav.
-        // Mantém observer + polling rodando indefinidamente; se o botão sumir do DOM,
-        // re-anexa automaticamente. Custo: ~1 querySelector por mutation/segundo.
-        const triggerWatchdog = new MutationObserver(() => {
-            if (!openBtn.isConnected) tryPlaceTriggerBtn();
-        });
+        // Verifica isConnected E visibilidade (width/height > 0).
+        function ensureTriggerAttached() {
+            if (!openBtn.isConnected) { tryPlaceTriggerBtn(); return; }
+            const r = openBtn.getBoundingClientRect();
+            if (r.width === 0 || r.height === 0) {
+                // Parent existe mas botão invisível — força re-attach
+                try { openBtn.remove(); } catch (_) {}
+                tryPlaceTriggerBtn();
+            }
+        }
+        const triggerWatchdog = new MutationObserver(ensureTriggerAttached);
         triggerWatchdog.observe(document.body, { childList: true, subtree: true });
-        setInterval(() => {
-            if (!openBtn.isConnected) tryPlaceTriggerBtn();
-        }, 1000);
+        setInterval(ensureTriggerAttached, 1000);
 
 
         const modal = document.getElementById('q-modal-ia');
@@ -907,16 +912,20 @@
             return true;
         }
 
-        tryPlaceInlineBtn();
+        const _firstPlaceInline = tryPlaceInlineBtn();
+        console.log('[PL Arantz] inline btn placed na 1ª tentativa?', _firstPlaceInline);
 
-        // Watchdog permanente também pro botão inline
-        const inlineWatchdog = new MutationObserver(() => {
-            if (!inlineBtn.isConnected) tryPlaceInlineBtn();
-        });
+        function ensureInlineAttached() {
+            if (!inlineBtn.isConnected) { tryPlaceInlineBtn(); return; }
+            const r = inlineBtn.getBoundingClientRect();
+            if (r.width === 0 || r.height === 0) {
+                try { inlineBtn.remove(); } catch (_) {}
+                tryPlaceInlineBtn();
+            }
+        }
+        const inlineWatchdog = new MutationObserver(ensureInlineAttached);
         inlineWatchdog.observe(document.body, { childList: true, subtree: true });
-        setInterval(() => {
-            if (!inlineBtn.isConnected) tryPlaceInlineBtn();
-        }, 1000);
+        setInterval(ensureInlineAttached, 1000);
         const genBtn      = document.getElementById('q-btn-generate');
         const nextBtn     = null; // single-step flow — no next button
         const phoneStep   = null;
@@ -1443,14 +1452,22 @@
         if (detectProductPage()) {
             _inited = true;
             console.log('[PL Arantz] init() — página de produto detectada');
-            init();
+            try {
+                init();
+            } catch (e) {
+                console.error('[PL Arantz] init falhou:', e);
+                _inited = false;  // permite retry
+            }
         }
     }
 
+    // Múltiplos pontos de entrada — qualquer um que dispare antes funciona
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', maybeInit);
     else maybeInit();
+    window.addEventListener('load', maybeInit);
+    document.addEventListener('readystatechange', maybeInit);
 
-    // Hooks pra detectar SPA navigation
+    // SPA navigation hooks
     window.addEventListener('popstate', () => setTimeout(maybeInit, 300));
     ['pushState', 'replaceState'].forEach(m => {
         const orig = history[m];
@@ -1461,7 +1478,23 @@
         };
     });
 
-    // Safety net: polling periódico (caso algum evento de nav seja perdido)
-    setInterval(maybeInit, 2000);
+    // Safety net: polling agressivo nos primeiros 30s (a cada 500ms),
+    // depois mais leve a cada 3s. Cobre casos onde init() roda antes do React montar.
+    let _fastTicks = 0;
+    const _fastPoll = setInterval(() => {
+        maybeInit();
+        _fastTicks++;
+        if (_fastTicks > 60) clearInterval(_fastPoll);
+    }, 500);
+    setInterval(maybeInit, 3000);
+
+    // Watchdog GLOBAL: se de algum jeito o modal sumir (ex: VTEX IO limpa o body),
+    // reseta _inited pra permitir nova init
+    setInterval(() => {
+        if (_inited && !document.getElementById('q-modal-ia')) {
+            console.log('[PL Arantz] modal desapareceu — resetando init');
+            _inited = false;
+        }
+    }, 2000);
 
 })();
