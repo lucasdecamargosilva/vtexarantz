@@ -1,4 +1,11 @@
 (function () {
+    // Guarda global — evita duplicação quando GTM dispara em 2 triggers (Page View + History Change)
+    if (window.__PL_ARANTZ_LOADED__) {
+        console.log('[PL Arantz] script já carregado, abortando 2ª execução');
+        return;
+    }
+    window.__PL_ARANTZ_LOADED__ = true;
+
     function isValidBRPhone(nums) {
         function setErr(msg) {
             var el = document.getElementById('q-phone-error');
