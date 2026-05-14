@@ -819,31 +819,18 @@
             return false;
         }
 
-        if (!tryPlaceTriggerBtn()) {
-            // VTEX IO React monta tarde. Combina MutationObserver + polling.
-            let placed = false;
-            const obs1 = new MutationObserver(() => {
-                if (!placed && tryPlaceTriggerBtn()) { placed = true; obs1.disconnect(); clearInterval(poll); }
-            });
-            obs1.observe(document.body, { childList: true, subtree: true });
+        tryPlaceTriggerBtn();
 
-            const poll = setInterval(() => {
-                if (placed) { clearInterval(poll); return; }
-                if (tryPlaceTriggerBtn()) { placed = true; obs1.disconnect(); clearInterval(poll); }
-            }, 400);
-
-            // Sem timeout — o observer + polling rodam até achar.
-            // Se em 30s nada achou, esconde o botão (não usa fallback canto inferior direito,
-            // que conflita com botão de WhatsApp da Arantz).
-            setTimeout(() => {
-                if (!placed) {
-                    obs1.disconnect();
-                    clearInterval(poll);
-                    // Botão inline próximo ao "Comprar" continua funcionando — esse aqui só some.
-                    openBtn.style.display = 'none';
-                }
-            }, 30000);
-        }
+        // Watchdog permanente: VTEX IO re-renderiza em variantes/SPA-nav.
+        // Mantém observer + polling rodando indefinidamente; se o botão sumir do DOM,
+        // re-anexa automaticamente. Custo: ~1 querySelector por mutation/segundo.
+        const triggerWatchdog = new MutationObserver(() => {
+            if (!openBtn.isConnected) tryPlaceTriggerBtn();
+        });
+        triggerWatchdog.observe(document.body, { childList: true, subtree: true });
+        setInterval(() => {
+            if (!openBtn.isConnected) tryPlaceTriggerBtn();
+        }, 1000);
 
 
         const modal = document.getElementById('q-modal-ia');
@@ -920,14 +907,16 @@
             return true;
         }
 
-        if (!tryPlaceInlineBtn()) {
-            // VTEX IO renderiza tarde — observa DOM até 8s
-            const obs2 = new MutationObserver(() => {
-                if (tryPlaceInlineBtn()) obs2.disconnect();
-            });
-            obs2.observe(document.body, { childList: true, subtree: true });
-            setTimeout(() => obs2.disconnect(), 8000);
-        }
+        tryPlaceInlineBtn();
+
+        // Watchdog permanente também pro botão inline
+        const inlineWatchdog = new MutationObserver(() => {
+            if (!inlineBtn.isConnected) tryPlaceInlineBtn();
+        });
+        inlineWatchdog.observe(document.body, { childList: true, subtree: true });
+        setInterval(() => {
+            if (!inlineBtn.isConnected) tryPlaceInlineBtn();
+        }, 1000);
         const genBtn      = document.getElementById('q-btn-generate');
         const nextBtn     = null; // single-step flow — no next button
         const phoneStep   = null;
@@ -1445,12 +1434,34 @@
         }
         return false;
     }
-    const isProductPage = detectProductPage();
-    console.log('[PL Arantz] É página de produto?', isProductPage);
-
-    if (isProductPage) {
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-        else init();
+    // Init idempotente: roda uma única vez quando o usuário está numa página de produto.
+    // Cobre SPA navigation (VTEX IO usa client-side routing) — se o widget carrega na home,
+    // ele aguarda o usuário navegar pra um produto pra inicializar.
+    let _inited = false;
+    function maybeInit() {
+        if (_inited) return;
+        if (detectProductPage()) {
+            _inited = true;
+            console.log('[PL Arantz] init() — página de produto detectada');
+            init();
+        }
     }
+
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', maybeInit);
+    else maybeInit();
+
+    // Hooks pra detectar SPA navigation
+    window.addEventListener('popstate', () => setTimeout(maybeInit, 300));
+    ['pushState', 'replaceState'].forEach(m => {
+        const orig = history[m];
+        history[m] = function () {
+            const r = orig.apply(this, arguments);
+            setTimeout(maybeInit, 300);
+            return r;
+        };
+    });
+
+    // Safety net: polling periódico (caso algum evento de nav seja perdido)
+    setInterval(maybeInit, 2000);
 
 })();
