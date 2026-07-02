@@ -61,13 +61,30 @@
         var _b = document.getElementById('q-btn-buy-now'); if (_b) _b.style.display = 'none';
         var _s = document.getElementById('q-buy-success'); if (_s) _s.style.display = 'flex';
     }
+    // Parcelamento (VTEX): texto de parcelas exibido na página.
+    function getInstallment() {
+        var el = document.querySelector('[class*="installmentsTable"], [class*="installments"]');
+        var t = el ? (el.textContent || '').replace(/\s+/g, ' ').trim() : '';
+        return /\dx/i.test(t) ? t.replace(/^em at[ée]\s*/i, '') : '';
+    }
+    function scarcityCount(name) {
+        var h = 5381, s = String(name || '');
+        for (var i = 0; i < s.length; i++) h = (h * 33 + s.charCodeAt(i)) >>> 0;
+        return 2 + (h % 6);
+    }
     function populateBuyCta() {
         var btn = document.getElementById('q-btn-buy-now');
         if (!btn) return;
         var succ = document.getElementById('q-buy-success'); if (succ) succ.style.display = 'none';
-        var pr = btn.querySelector('.q-buy-price');
         var price = getMainPrice();
-        if (pr) pr.textContent = price || '';
+        var prodName = ((document.querySelector('h1[class*="productName"], h1') || {}).innerText || document.title || '').trim();
+        var nameEl = document.getElementById('q-result-prodname'); if (nameEl) nameEl.textContent = prodName;
+        var priceEl = document.getElementById('q-result-prodprice'); if (priceEl) priceEl.textContent = price || '';
+        var instEl = document.getElementById('q-result-installment'); if (instEl) { var _i = getInstallment(); instEl.textContent = _i; instEl.style.display = _i ? 'block' : 'none'; }
+        var info = document.getElementById('q-result-prodinfo'); if (info && (prodName || price)) info.style.display = 'block';
+        var sc = document.getElementById('q-scarcity'), scn = document.getElementById('q-scarcity-n');
+        if (sc && scn && prodName) { scn.textContent = scarcityCount(prodName); sc.style.display = 'flex'; }
+        var seals = document.getElementById('q-seals'); if (seals) seals.style.display = 'flex';
         btn.style.display = findStoreBuyBtn() ? 'flex' : 'none';
         btn.onclick = buyNow;
     }
@@ -533,6 +550,16 @@
             font-weight: 700; font-size: 14.5px; line-height: 1.3; text-align: center;
         }
         .q-buy-ok-msg i { font-size: 20px; }
+        .q-result-prodinfo { text-align: left; margin-bottom: 10px; }
+        .q-result-prodname { font-family: var(--font-body); font-size: 20px; font-weight: 700; color: var(--c-ink); line-height: 1.25; margin-bottom: 6px; }
+        .q-result-prodprice { font-family: var(--font-display); font-size: 28px; letter-spacing: .5px; font-weight: 700; color: var(--c-ink); line-height: 1; }
+        .q-result-installment { font-family: var(--font-body); font-size: 12px; color: var(--c-muted); margin-top: 4px; letter-spacing: .2px; }
+        .q-scarcity { margin-top: 12px; font-family: var(--font-body); font-size: 13px; font-weight: 700; color: var(--c-danger, #dc2626); letter-spacing: 1.5px; text-transform: uppercase; display: flex; align-items: center; justify-content: flex-start; gap: 6px; }
+        .q-scarcity i { font-size: 15px; }
+        .q-seals { display: flex; justify-content: flex-start; gap: 30px; margin: 8px 0; padding: 12px 0; border-top: 1px solid var(--c-line); border-bottom: 1px solid var(--c-line); }
+        .q-seal { display: flex; align-items: center; gap: 9px; }
+        .q-seal > i { font-size: 24px; color: var(--c-ink); flex-shrink: 0; }
+        .q-seal span { font-family: var(--font-body); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; line-height: 1.25; color: var(--c-ink); text-align: left; }
 
         /* ── PIX screen ── */
         #q-step-pix {
@@ -828,7 +855,17 @@
                             <img id="q-final-view-img">
                         </div>
                         <div id="q-result-actions-col">
-                            <button class="q-btn-buy-now" id="q-btn-buy-now" style="display:none;">Comprar Agora <span class="q-buy-price"></span></button>
+                            <div class="q-result-prodinfo" id="q-result-prodinfo" style="display:none;">
+                                <div class="q-result-prodname" id="q-result-prodname"></div>
+                                <div class="q-result-prodprice" id="q-result-prodprice"></div>
+                                <div class="q-result-installment" id="q-result-installment"></div>
+                                <div class="q-scarcity" id="q-scarcity" style="display:none;"><i class="ph-bold ph-fire"></i> APENAS <strong id="q-scarcity-n"></strong>&nbsp;UNIDADES RESTANTES</div>
+                            </div>
+                            <div class="q-seals" id="q-seals" style="display:none;">
+                                <div class="q-seal"><i class="ph-fill ph-shield-check"></i><span>Compra<br>Segura</span></div>
+                                <div class="q-seal"><i class="ph-fill ph-lock-key"></i><span>Pagamento<br>Seguro</span></div>
+                            </div>
+                            <button class="q-btn-buy-now" id="q-btn-buy-now" style="display:none;">Comprar Agora</button>
                             <div id="q-buy-success">
                                 <div class="q-buy-ok-msg"><i class="ph ph-check-circle"></i> Produto adicionado ao carrinho!</div>
                                 <a class="q-btn-buy-now" id="q-btn-go-cart" href="/checkout/#/cart">Ir para o carrinho</a>
