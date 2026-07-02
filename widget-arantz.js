@@ -33,7 +33,42 @@
     const WEBHOOK_PROVA = 'https://n8n.segredosdodrop.com/webhook/gerador-oculos';
     const WEBHOOK_PIX = 'https://n8n.segredosdodrop.com/webhook/cacife-pix';
     const WEBHOOK_PIX_STATUS = 'https://n8n.segredosdodrop.com/webhook/cacife-pix-status';
-    // WEBHOOK_CHECK_LIMIT removido — sem limite por agora
+    const WEBHOOK_BUY_CLICK = 'https://n8n.segredosdodrop.com/webhook/pl-provador-buy-click';
+
+    // ── Botão "Comprar Agora" no resultado (VTEX) ───────────────────────────────
+    // Preço FINAL (sellingPrice; listPrice é o "de" riscado).
+    function getMainPrice() {
+        var el = document.querySelector('[class*="sellingPriceValue"], [class*="sellingPrice"], [class*="bestPrice"]');
+        var t = el ? (el.textContent || '').trim() : '';
+        if (t && /\d/.test(t)) return t.replace(/\s+/g, ' ');
+        return '';
+    }
+    // Botão nativo de compra da loja (VTEX IO + fallback legado).
+    function findStoreBuyBtn() {
+        var inner = document.querySelector('.vtex-add-to-cart-button-0-x-buttonDataContainer, .vtex-add-to-cart-button-0-x-buttonText, [class*="add-to-cart-button"]');
+        var btn = inner ? inner.closest('button') : null;
+        if (!btn) btn = document.querySelector('.js-addtocart, .btn-add-to-cart, [data-component="product.add-to-cart"]');
+        return btn;
+    }
+    function buyNow() {
+        try {
+            var _tp = (document.getElementById('q-phone') || {}).value || '';
+            var _td = (document.querySelector('h1[class*="productName"], h1') || {}).innerText || document.title || '';
+            fetch(WEBHOOK_BUY_CLICK, { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone: _tp, origin: location.origin, produto: _td }) }).catch(function () {});
+        } catch (e) {}
+        var sb = findStoreBuyBtn();
+        if (sb) { try { sb.click(); } catch (e) {} }
+    }
+    function populateBuyCta() {
+        var btn = document.getElementById('q-btn-buy-now');
+        if (!btn) return;
+        var pr = btn.querySelector('.q-buy-price');
+        var price = getMainPrice();
+        if (pr) pr.textContent = price || '';
+        btn.style.display = findStoreBuyBtn() ? 'flex' : 'none';
+        btn.onclick = buyNow;
+    }
+
     const SIZES_TOP = ['XXP', 'XP', 'P', 'M', 'G', 'XG', 'XXG', '3XG', '4XG', '5XG'];
     const SIZES_BOTTOM = ['36/XXP', '38/XP', '40/P', '42/M', '44/G', '46/XG', '48/XXG', '50/3XG', '52/4XG', '54/5XG'];
     const SIZES_BOTTOM_SW = ['XXP', 'XP', 'P', 'M', 'G', 'XG', 'XXG', '3XG', '4XG', '5XG'];
@@ -473,6 +508,16 @@
             cursor: pointer; transition: border-color 0.2s, background 0.2s; box-sizing: border-box;
         }
         .q-btn-outline:hover { border-color: var(--c-ink); background: var(--c-surface); }
+        .q-btn-buy-now {
+            width: 100%; padding: 16px 18px; margin-bottom: 10px;
+            background: var(--c-ink); color: #fff; border: 1px solid var(--c-ink);
+            border-radius: 14px; font-family: var(--font-body);
+            font-weight: 700; font-size: 15px; letter-spacing: .3px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            transition: opacity .2s; box-sizing: border-box; line-height: 1.2;
+        }
+        .q-btn-buy-now:hover { opacity: .85; }
+        .q-btn-buy-now .q-buy-price { font-weight: 800; white-space: nowrap; }
 
         /* ── PIX screen ── */
         #q-step-pix {
@@ -768,6 +813,7 @@
                             <img id="q-final-view-img">
                         </div>
                         <div id="q-result-actions-col">
+                            <button class="q-btn-buy-now" id="q-btn-buy-now" style="display:none;">Comprar Agora <span class="q-buy-price"></span></button>
                             <button class="q-btn-outline" id="q-btn-back">Voltar ao Produto</button>
                             <button class="q-btn-black q-res-mobile-only" id="q-retry-btn" style="display:flex;align-items:center;justify-content:center;gap:8px;">
                                 <i class="ph ph-camera"></i> Tentar outra foto
@@ -1479,6 +1525,7 @@
                     document.getElementById('q-final-view-img').src = URL.createObjectURL(blob);
                     document.querySelector('.q-card-ia').classList.add('is-result');
                     document.getElementById('q-step-result').style.display = 'flex';
+                    try { populateBuyCta(); } catch (e) {}
                     loadRelatedProducts();
                 } else if (res.status === 401 || res.status === 403) {
                     document.getElementById('q-loading-box').style.display = 'none';
