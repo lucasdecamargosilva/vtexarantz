@@ -58,10 +58,13 @@
         } catch (e) {}
         var sb = findStoreBuyBtn();
         if (sb) { try { sb.click(); } catch (e) {} }
+        var _b = document.getElementById('q-btn-buy-now'); if (_b) _b.style.display = 'none';
+        var _s = document.getElementById('q-buy-success'); if (_s) _s.style.display = 'flex';
     }
     function populateBuyCta() {
         var btn = document.getElementById('q-btn-buy-now');
         if (!btn) return;
+        var succ = document.getElementById('q-buy-success'); if (succ) succ.style.display = 'none';
         var pr = btn.querySelector('.q-buy-price');
         var price = getMainPrice();
         if (pr) pr.textContent = price || '';
@@ -517,7 +520,19 @@
             transition: opacity .2s; box-sizing: border-box; line-height: 1.2;
         }
         .q-btn-buy-now:hover { opacity: .85; }
+        .q-btn-buy-now { text-decoration: none; }
         .q-btn-buy-now .q-buy-price { font-weight: 800; white-space: nowrap; }
+        .q-card-ia.is-result #q-btn-back,
+        .q-card-ia.is-result #q-retry-btn,
+        .q-card-ia.is-result #q-provas-restantes-result { display: none !important; }
+        #q-buy-success { display: none; flex-direction: column; gap: 10px; }
+        .q-buy-ok-msg {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            background: #e8f5e9; color: #1b7e2e; border: 1px solid #b6e0bd;
+            border-radius: 14px; padding: 14px 16px; font-family: var(--font-body);
+            font-weight: 700; font-size: 14.5px; line-height: 1.3; text-align: center;
+        }
+        .q-buy-ok-msg i { font-size: 20px; }
 
         /* ── PIX screen ── */
         #q-step-pix {
@@ -814,6 +829,10 @@
                         </div>
                         <div id="q-result-actions-col">
                             <button class="q-btn-buy-now" id="q-btn-buy-now" style="display:none;">Comprar Agora <span class="q-buy-price"></span></button>
+                            <div id="q-buy-success">
+                                <div class="q-buy-ok-msg"><i class="ph ph-check-circle"></i> Produto adicionado ao carrinho!</div>
+                                <a class="q-btn-buy-now" id="q-btn-go-cart" href="/checkout/#/cart">Ir para o carrinho</a>
+                            </div>
                             <button class="q-btn-outline" id="q-btn-back">Voltar ao Produto</button>
                             <button class="q-btn-black q-res-mobile-only" id="q-retry-btn" style="display:flex;align-items:center;justify-content:center;gap:8px;">
                                 <i class="ph ph-camera"></i> Tentar outra foto
