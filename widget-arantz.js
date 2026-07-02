@@ -541,7 +541,7 @@
         .q-btn-buy-now .q-buy-price { font-weight: 800; white-space: nowrap; }
         .q-card-ia.is-result #q-retry-btn,
         .q-card-ia.is-result #q-provas-restantes-result { display: none !important; }
-        .q-card-ia.is-result #q-btn-back { display: flex !important; }
+        .q-card-ia.is-result #q-btn-back { display: flex !important; align-items: center; justify-content: center; }
         #q-buy-success { display: none; flex-direction: column; gap: 10px; }
         .q-buy-ok-msg {
             display: flex; align-items: center; justify-content: center; gap: 8px;
