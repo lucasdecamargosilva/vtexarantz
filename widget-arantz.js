@@ -80,7 +80,7 @@
         var prodName = ((document.querySelector('h1[class*="productName"], h1') || {}).innerText || document.title || '').trim();
         var nameEl = document.getElementById('q-result-prodname'); if (nameEl) nameEl.textContent = prodName;
         var priceEl = document.getElementById('q-result-prodprice'); if (priceEl) priceEl.textContent = price || '';
-        var instEl = document.getElementById('q-result-installment'); if (instEl) { var _i = getInstallment(); instEl.textContent = _i; instEl.style.display = _i ? 'block' : 'none'; }
+        var instEl = document.getElementById('q-result-installment'); if (instEl) { var _i = getInstallment(); try { var _pm=getMainPrice(); var _pn=_pm?parseFloat(String(_pm).replace(/[^\d.,]/g,'').replace(/\.(?=\d{3}(?:\D|$))/g,'').replace(',','.')):0; var _mm=_i&&_i.match(/(\d+)\s*x\s*(?:de\s*)?R?\$?\s*([\d.,]+)/i); if(_pn>0&&_mm){var _n=parseInt(_mm[1],10);var _v=parseFloat(_mm[2].replace(/\.(?=\d{3}(?:\D|$))/g,'').replace(',','.'));if(_n&&_v&&Math.abs(_n*_v-_pn)>Math.max(0.5,_pn*0.02))_i='';} }catch(e){} instEl.textContent = _i; instEl.style.display = _i ? 'block' : 'none'; }
         var info = document.getElementById('q-result-prodinfo'); if (info && (prodName || price)) info.style.display = 'block';
         var sc = document.getElementById('q-scarcity'), scn = document.getElementById('q-scarcity-n');
         if (sc && scn && prodName) { scn.textContent = scarcityCount(prodName); sc.style.display = 'flex'; }
