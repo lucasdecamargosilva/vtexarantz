@@ -1609,6 +1609,7 @@
 
         // ── GERAÇÃO PRINCIPAL ──
         async function runGeneration() {
+            if (runGeneration._busy) return;   // trava clique duplo: nao dispara 2 provas
             const keyToUse = window.PROVOU_LEVOU_API_KEY;
             if (!keyToUse || keyToUse.includes("COLOQUE_A_CHAVE_AQUI")) {
                 showError();
@@ -1622,6 +1623,7 @@
             document.getElementById('q-loading-box').style.display = 'flex';
             startLoadingProgress();
 
+            runGeneration._busy = true;
             try {
                 const fd = new FormData();
                 fd.append('person_image', await toJpeg(userPhoto), 'person.jpg');
@@ -1733,6 +1735,8 @@
                 document.getElementById('q-loading-box').style.display = 'none';
                 photoStep.style.display = 'flex';
                 showError();
+            } finally {
+                runGeneration._busy = false;   // libera pra proxima prova
             }
         }
 
