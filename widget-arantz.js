@@ -1549,7 +1549,7 @@
             document.getElementById('q-step-pix').style.display = 'none';
         }
 
-        async function createPixAndPoll() {
+        async function createPixAndPoll(_isRetry) {
             showPixScreen();
             try {
                 const resp = await fetch(WEBHOOK_PIX, {
@@ -1560,7 +1560,13 @@
                 const pix = await resp.json();
                 if (!pix.payment_id || !pix.qr_code || !pix.qr_code_base64) throw new Error('PIX inválido');
 
-                document.getElementById('q-pix-qr-img').src = 'data:image/png;base64,' + pix.qr_code_base64;
+                const _qrImg = document.getElementById('q-pix-qr-img');
+                // Auto-recuperação: se o QR não carregar, refaz UMA vez.
+                _qrImg.onerror = function () {
+                    _qrImg.onerror = null;
+                    if (!_isRetry) { stopPixPolling(); createPixAndPoll(true); }
+                };
+                _qrImg.src = 'data:image/png;base64,' + pix.qr_code_base64;
                 document.getElementById('q-pix-code').value = pix.qr_code;
 
                 // Polling a cada 3s por até 5min
