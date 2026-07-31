@@ -1599,6 +1599,41 @@
             });
         }
 
+        // ── PIX pendente em localStorage (evita cobrar duas vezes e permite retomar
+        //    o pagamento feito no app do banco). Estava FALTANDO no clone: pixUnlock e
+        //    pixResume ja' chamavam _pixClearPending/_PIX_LS_KEY, que nao existiam. ──
+        const _PIX_LS_KEY = 'pl_pix_pending_v1';
+        const _PIX_TTL_MS = 25 * 60 * 1000; // PIX do MP expira em 30min
+        function _pixLoadPending(phone) {
+            try {
+                const raw = localStorage.getItem(_PIX_LS_KEY);
+                if (!raw) return null;
+                const arr = JSON.parse(raw);
+                const now = Date.now();
+                return arr.filter(function (p) { return p.phone === phone && (now - p.ts) < _PIX_TTL_MS; })[0] || null;
+            } catch (_) { return null; }
+        }
+        function _pixSavePending(phone, payment_id, qr_code, qr_code_base64) {
+            try {
+                const raw = localStorage.getItem(_PIX_LS_KEY);
+                let arr = [];
+                try { arr = raw ? JSON.parse(raw) : []; } catch (_) {}
+                const now = Date.now();
+                arr = arr.filter(function (p) { return (now - p.ts) < _PIX_TTL_MS && p.phone !== phone; });
+                arr.push({ phone: phone, payment_id: payment_id, qr_code: qr_code, qr_code_base64: qr_code_base64, ts: now });
+                localStorage.setItem(_PIX_LS_KEY, JSON.stringify(arr));
+            } catch (_) {}
+        }
+        function _pixClearPending(phone) {
+            try {
+                const raw = localStorage.getItem(_PIX_LS_KEY);
+                if (!raw) return;
+                let arr = JSON.parse(raw);
+                arr = arr.filter(function (p) { return p.phone !== phone; });
+                localStorage.setItem(_PIX_LS_KEY, JSON.stringify(arr));
+            } catch (_) {}
+        }
+
         // ── PIX: polling e controle ──
         let pixPollingTimer = null;
 
@@ -1684,16 +1719,56 @@
             document.getElementById('q-step-pix').style.display = 'none';
         }
 
+        // Limite atingido numa loja SEM PIX habilitado -> tela "volte amanha".
+        // Antes caia no showError() e o cliente via "Provador fora do ar".
+        function showLimitScreen(msg) {
+            try {
+                stopPixPolling();
+                if (uploadStep) uploadStep.style.display = 'none';
+                var _ph = document.getElementById('q-step-photo'); if (_ph) _ph.style.display = 'none';
+                var _lb = document.getElementById('q-loading-box'); if (_lb) _lb.style.display = 'none';
+                var _pix = document.getElementById('q-step-pix');
+                if (!_pix) return;
+                _pix.style.display = 'flex';
+                _pix.innerHTML =
+                    '<div style="width:72px;height:72px;border-radius:50%;background:rgba(0,0,0,0.05);display:flex;align-items:center;justify-content:center;margin:0 auto 4px;">'
+                    + '<svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--c-accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+                    + '<circle cx="6" cy="15" r="3.2"/><circle cx="18" cy="15" r="3.2"/><path d="M9.2 15c0-1.2 1.2-2 2.8-2s2.8.8 2.8 2"/>'
+                    + '<path d="M2.8 13.5 4.6 8.8a2 2 0 0 1 1.9-1.3h1.2"/><path d="M21.2 13.5 19.4 8.8a2 2 0 0 0-1.9-1.3h-1.2"/></svg></div>'
+                    + '<h2 style="text-align:center;">Suas provas de hoje acabaram!</h2>'
+                    + '<p class="q-pix-subtitle" id="q-limit-msg" style="text-align:center;"></p>';
+                // texto via textContent (vem do backend, nao entra como HTML)
+                var _lm = document.getElementById('q-limit-msg');
+                if (_lm) _lm.textContent = msg || 'Você já usou suas provas gratuitas de hoje. Volte amanhã para experimentar mais modelos!';
+            } catch (_) {}
+        }
+
         async function createPixAndPoll(_isRetry) {
             showPixScreen();
+            const _ppPhone = '55' + phoneInput.value.replace(/\D/g, '');
             try {
-                const resp = await fetch(WEBHOOK_PIX, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: 'cliente@provoulevou.com.br', phone: '55' + phoneInput.value.replace(/\D/g, '') })
-                });
-                const pix = await resp.json();
-                if (!pix.payment_id || !pix.qr_code || !pix.qr_code_base64) throw new Error('PIX inválido');
+                // Reaproveita um PIX ainda valido do mesmo telefone (nao cobra 2x)
+                let pix = _isRetry ? null : _pixLoadPending(_ppPhone);
+                if (!pix) {
+                    const resp = await fetch(WEBHOOK_PIX, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        // ⚠️ loja/origin sao OBRIGATORIOS: a allowlist do workflow PIX le
+                        // body.origin || body.loja. Sem eles vinha {disabled:true} e o widget
+                        // caia no showError() ("Provador fora do ar") em vez da tela de PIX.
+                        body: JSON.stringify({
+                            email: 'cliente@provoulevou.com.br',
+                            phone: _ppPhone,
+                            loja: 'arantz',
+                            origin: location.origin
+                        })
+                    });
+                    pix = await resp.json();
+                    // Loja sem PIX habilitado -> mostra "provas de hoje acabaram", nao erro
+                    if (pix && pix.disabled) { hidePixScreen(); showLimitScreen(pix.message); return; }
+                    if (!pix.payment_id || !pix.qr_code || !pix.qr_code_base64) throw new Error('PIX inválido');
+                    _pixSavePending(_ppPhone, pix.payment_id, pix.qr_code, pix.qr_code_base64);
+                }
 
                 const _qrImg = document.getElementById('q-pix-qr-img');
                 // Auto-recuperação: se o QR não carregar, refaz UMA vez.
@@ -1711,7 +1786,7 @@
                 pixPollingTimer = setInterval(function () {
                     attempts++;
                     if (attempts > 600) { stopPixPolling(); return; }
-                    pixCheck(pix.payment_id, None);
+                    pixCheck(pix.payment_id, _ppPhone);   // era `None` (sintaxe Python): quebrava o polling a cada 3s e o PIX pago nunca era detectado
                 }, 3000);
             } catch (e) {
                 hidePixScreen();
