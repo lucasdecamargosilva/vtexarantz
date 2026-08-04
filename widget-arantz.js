@@ -1908,6 +1908,11 @@
                 const contentType = res.headers.get("content-type") || "";
                 if (contentType.includes("application/json")) {
                     const data = await res.json();
+                    if (data.limited || data.error === 'limite_diario') {
+                        try { document.getElementById('q-loading-box').style.display = 'none'; } catch (_) {}
+                        createPixAndPoll();
+                        return;
+                    }
                     if (data.error) {
                         document.getElementById('q-loading-box').style.display = 'none';
                         photoStep.style.display = 'flex';
