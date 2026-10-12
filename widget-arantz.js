@@ -3768,6 +3768,73 @@
 
                 allProdImgs = allProdImgs.slice(0, 3);
 
+                    // ── Regra de fotos da frota (12/10/2026, Lucas) ─────────────────────────────
+                    // VARIANTE SELECIONADA -> candidatas (foto da variante, grupo vizinho, fotos com rosto)
+                    // -> o gerador filtra por imagem usando a foto da variante (variant_ref_index) como
+                    // referencia de cor e fica com ate 4: rosto da cor certa como principal + packshots.
+                    // Produto sem variante com foto: nao mexe (vale a regra antiga da loja). Versao VTEX.
+                    try {
+                        var _plFV = await (async function () {
+                            // VTEX: a propria loja informa as fotos de cada SKU (cor)
+                            var chave = function (x) { return String(x || '').split('?')[0].split('/').pop(); };
+                            var abs = function (x) { return String(x || ''); };
+                            var rp = await fetch('/api/catalog_system/pub/products/search' + location.pathname.replace(/\/p\/?$/, '') + '/p').then(function (r) { return r.json(); });
+                            var p = rp && rp[0]; if (!p || !p.items || p.items.length < 2) return null;
+                            var skuId = new URLSearchParams(location.search).get('skuId');
+                            var it = p.items.filter(function (i) { return skuId && String(i.itemId) === String(skuId); })[0] || null;
+                            if (!it) { var ativo = document.querySelector('[class*="skuSelector"] [class*="selected"], [class*="sku-selector"] [class*="selected"]'); var nm = ativo && (ativo.getAttribute('title') || ativo.innerText || '').trim().toLowerCase(); if (nm) it = p.items.filter(function (i) { return String(i.name || '').toLowerCase().indexOf(nm) >= 0; })[0] || null; }
+                            if (!it) return null;
+                            var gal = (it.images || []).map(function (x) { return x.imageUrl; }).filter(Boolean);
+                            if (!gal.length) return null;
+                            var sel = { image_url: gal[0] };
+                            var imgsVar = {}; imgsVar[chave(gal[0])] = 1;   // so as fotos deste SKU: todas da mesma cor
+                            var ini = gal.findIndex(function (g) { return chave(g) === chave(sel.image_url); });
+                            var varUrl = abs(sel.image_url);
+                            var idxVar = []; gal.forEach(function (g, i) { if (imgsVar[chave(g)]) idxVar.push(i); });
+                            // grupo vizinho (lojas que organizam a galeria por cor)
+                            var grupo = [];
+                            if (ini >= 0) { var prox = idxVar.filter(function (i) { return i > ini; })[0]; grupo = gal.slice(ini + 1, prox === undefined ? gal.length : prox); }
+                            // demais fotos da galeria, menos as vinculadas a OUTRAS variantes (com certeza outra cor)
+                            var resto = gal.filter(function (g, i) { return i !== ini && idxVar.indexOf(i) < 0 && grupo.indexOf(g) < 0; });
+                            var cand = grupo.concat(resto).map(abs).slice(0, 10);
+                                                        var rostos = [];
+                            try {
+                                // detector proprio (mesmo do widget: nativo do navegador ou MediaPipe), cache em window
+                                var fdet = window.__plFVDet;
+                                if (fdet === undefined) {
+                                    fdet = null;
+                                    try {
+                                        if ('FaceDetector' in window) fdet = { native: new window.FaceDetector({ fastMode: true, maxDetectedFaces: 1 }) };
+                                        else {
+                                            var vision = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/vision_bundle.mjs');
+                                            var fileset = await vision.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm');
+                                            fdet = { mp: await vision.FaceDetector.createFromOptions(fileset, { baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite' }, runningMode: 'IMAGE' }) };
+                                        }
+                                    } catch (e) { fdet = null; }
+                                    window.__plFVDet = fdet;
+                                }
+                                var carrega = function (url) { return new Promise(function (res) { var im = new Image(); im.crossOrigin = 'anonymous'; im.onload = function () { res(im); }; im.onerror = function () { res(null); }; im.src = url; }); };
+                                var temRosto = async function (im) { try { if (fdet.native) { var f = await fdet.native.detect(im); return !!(f && f.length); } if (fdet.mp) { var r = fdet.mp.detect(im); return !!(r && r.detections && r.detections.length); } } catch (e) {} return false; };
+                                if (fdet) for (var ci = 0; ci < cand.length && rostos.length < 3; ci++) {
+                                    var cim = await carrega(cand[ci]);
+                                    if (cim && await temRosto(cim)) rostos.push(cand[ci]);
+                                }
+                            } catch (e) {}
+                            // ordem: rosto (principal) > variante > grupo > outros rostos > resto. O gerador filtra a cor
+                            // pela foto da variante e fica com ate 4.
+                            var fotos = [];
+                            var add = function (u) { if (u && fotos.indexOf(u) < 0) fotos.push(u); };
+                            add(rostos[0]); add(varUrl); grupo.map(abs).forEach(add); rostos.slice(1).forEach(add); resto.map(abs).forEach(add);
+                            fotos = fotos.slice(0, 6);
+                            return { fotos: fotos, variante: varUrl };
+                        })();
+                        if (_plFV && _plFV.fotos && _plFV.fotos.length) {
+                            allProdImgs = _plFV.fotos;
+                            fd.append('variant_ref_index', String(_plFV.fotos.indexOf(_plFV.variante) + 1));
+                            console.log('[PL] fotos da variante:', allProdImgs.length);
+                        }
+                    } catch (_plE) {}
+                    // ─────────────────────────────────────────────────────────────────────────────
                 let _primaryDone = false, _slot = 1;
 
                     for (let _pi = 0; _pi < allProdImgs.length; _pi++) {
