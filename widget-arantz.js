@@ -3883,6 +3883,27 @@ setInterval(function(){var el=document.getElementById('q-step-error');if(!el)ret
                             console.log('[PL] fotos da variante:', allProdImgs.length);
                         }
                     } catch (_plE) {}
+                    // Arantz, Noir (04/11/2026, Lucas): a referencia e so a foto da modelo de frente, na cor escolhida e em tamanho grande.
+                    // Tartaruga nao tem foto com rosto e segue a regra geral.
+                    try {
+                        if (/\/oculos-optico-noir\/p/.test(location.pathname)) {
+                            var _plNoir = await (async function () {
+                                var FOTO = { '199': '159585', '200': '159583', '201': '159592', '202': '159591' };
+                                var sem = function (x) { return String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); };
+                                var rp = await fetch('/api/catalog_system/pub/products/search' + location.pathname.replace(/\/p\/?$/, '') + '/p').then(function (r) { return r.json(); });
+                                var itens = (rp && rp[0] && rp[0].items) || [];
+                                var ativo = document.querySelector('[class*="skuSelectorItem--selected"]');
+                                var cls = sem(ativo && ativo.className);
+                                var qs = new URLSearchParams(location.search);
+                                var porId = function (id) { return itens.filter(function (i) { return id && String(i.itemId) === String(id); })[0]; };
+                                var it = itens.filter(function (i) { return cls && cls.indexOf('skuselectoritem--' + sem((i.Cor || [])[0])) >= 0; })[0] || porId(qs.get('skuId')) || porId(qs.get('idsku'));
+                                var id = it && FOTO[String(it.itemId)];
+                                var img = id && (it.images || []).filter(function (x) { return String(x.imageUrl).indexOf('/ids/' + id + '/') >= 0; })[0];
+                                return img ? img.imageUrl : null;
+                            })();
+                            if (_plNoir) { allProdImgs = [_plNoir]; fd.delete('variant_ref_index'); }
+                        }
+                    } catch (_plN) {}
                     // ─────────────────────────────────────────────────────────────────────────────
                 let _primaryDone = false, _slot = 1;
 
