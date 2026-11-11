@@ -2624,7 +2624,29 @@ setInterval(function(){var el=document.getElementById('q-step-error');if(!el)ret
 
 
 
+        // 11/11/2026 (Lucas): a Arantz vende ROUPA (arantz.com.br/roupas). Na pagina de roupa os textos deixam de falar de oculos
+        // (o gerador troca o prompt pelo de roupa pelo nome do produto).
+        function plArzEhRoupa() {
+            try {
+                var bc = Array.prototype.map.call(document.querySelectorAll('[class*="breadcrumb"] a, [class*="breadcrumb"] span'), function (e) { return e.textContent || ''; }).join(' ');
+                var h = ((document.querySelector('h1') || {}).innerText || '');
+                var t = (bc + ' ' + h).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+                return /\broupas?\b/.test(bc.toLowerCase()) || /\b(camiseta|camisa|moletom|hoodie|blusa|regata|polo|jaqueta|casaco|calca|bermuda|shorts?|cropped|vestido|saia)\b/.test(t);
+            } catch (e) { return false; }
+        }
+        function plArzTextosRoupa() {
+            if (!plArzEhRoupa()) return;
+            try {
+                var lb = document.querySelector('#q-photo-selector-group .q-field-label'); if (lb) lb.textContent = 'Escolha a foto da peça';
+                var gb = document.getElementById('q-btn-generate'); if (gb) gb.textContent = 'Provar peça';
+                var tip = Array.prototype.find.call(document.querySelectorAll('.q-tip-box span'), function (e) { return /de frente/i.test(e.textContent || ''); });
+                if (tip) tip.textContent = 'Use uma foto de frente, da cintura para cima (ou de corpo inteiro), com boa iluminação.';
+            } catch (e) {}
+        }
+
         function openModal() {
+
+            try { plArzTextosRoupa(); } catch (e) {}
 
             try { startFaceDetect(); } catch (e) {}
 
